@@ -1,0 +1,7 @@
+.venv/
+models/ostrack/*.engine
+models/ostrack/*.onnx
+models/ostrack/*.pth*
+models/ostrack/*.tar
+__pycache__/
+*.pyc

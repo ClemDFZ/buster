@@ -1,0 +1,41 @@
+track_server:
+  ros__parameters:
+    pan_min_deg: -90.0
+    pan_max_deg: 90.0
+    tilt_min_deg: -50.0
+    tilt_max_deg: -15.0
+    sweep_pan_dps: 27.0
+    sweep_tilt_dps: 9.0
+    sweep_hyst_deg: 2.0
+    settle_s: 0.35
+    move_timeout_s: 8.0
+    detect_timeout_s: 180.0
+
+    ostrack_backend: auto
+    track_conf_threshold: 0.1
+    lost_frames: 6
+    template_refresh_s: 1.5
+    template_refresh_score: 0.55
+
+    kp_x: -0.02
+    kp_y: 0.02
+    kd_x: 0.0005
+    kd_y: 0.0005
+    ki_x: 0.0
+    ki_y: 0.0
+    deadzone_px: 8.0
+    max_dps: 150.0
+    control_hz: 30.0
+
+    pan_joint: pan_joint
+    tilt_joint: tilt_joint
+    image_topic: /csi_cam/image_raw
+    publish_annotated: true
+    annotate_compressed: true
+    annotate_raw: false
+    annotate_topic: /vlm/track_annotated
+    annotate_jpeg_quality: 70
+    annotate_max_side: 640
+    feedback_every_n: 2
+    motion_enabled: true
+    sweep_enabled: true

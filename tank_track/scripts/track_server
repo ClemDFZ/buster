@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# Launcher: package-local .venv (torch+TRT) + Jetson CUDA libs for OSTrack.
+set -euo pipefail
+
+_HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PKG_ROOT=""
+for cand in \
+  "${_HERE}/.." \
+  "${HOME}/tank_ws/src/tank_track" \
+  "${AMENT_CURRENT_PREFIX:-}/../../src/tank_track"
+do
+  # Prefer a tree that actually has .venv (source), else any package.xml
+  if [[ -x "${cand}/.venv/bin/python" && -f "${cand}/package.xml" ]]; then
+    PKG_ROOT="$(cd "${cand}" && pwd)"
+    break
+  fi
+done
+if [[ -z "${PKG_ROOT}" ]]; then
+  for cand in \
+    "${_HERE}/.." \
+    "${HOME}/tank_ws/src/tank_track"
+  do
+    if [[ -f "${cand}/package.xml" ]]; then
+      PKG_ROOT="$(cd "${cand}" && pwd)"
+      break
+    fi
+  done
+fi
+
+if [[ -z "${PKG_ROOT}" ]]; then
+  echo "[track_server] cannot find tank_track package root" >&2
+  exit 1
+fi
+
+VENV="${PKG_ROOT}/.venv"
+if [[ ! -x "${VENV}/bin/python" ]]; then
+  echo "[track_server] missing ${VENV}" >&2
+  echo "  Run:  bash ${PKG_ROOT}/scripts/setup_venv.sh" >&2
+  exit 1
+fi
+
+export PYTHONNOUSERSITE=1
+export CUDA_HOME="${CUDA_HOME:-/usr/local/cuda-12.6}"
+TORCH_LIBS="${VENV}/lib/python3.10/site-packages/torch/lib"
+EXTRA_LIBS="${VENV}/lib/python3.10/site-packages/nvidia/cusparselt/lib:${VENV}/lib/python3.10/site-packages/nvidia/nccl/lib:${VENV}/lib/python3.10/site-packages/nvidia/nvshmem/lib"
+SYS_CUDA="${CUDA_HOME}/targets/aarch64-linux/lib:/usr/local/cuda/targets/aarch64-linux/lib:/usr/lib/aarch64-linux-gnu"
+export LD_LIBRARY_PATH="${TORCH_LIBS}:${EXTRA_LIBS}:${SYS_CUDA}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+export LD_LIBRARY_PATH="$(python3 - <<'PY'
+import os
+parts=[]
+for p in os.environ.get("LD_LIBRARY_PATH","").split(":"):
+    if not p: continue
+    pl=p.replace("\\","/").lower()
+    if "/nvidia/cudnn/" in pl or "/nvidia/cu13/" in pl or "/nvidia/cuda_runtime/" in pl:
+        continue
+    parts.append(p)
+print(":".join(parts))
+PY
+)"
+
+if [[ -n "${AMENT_PREFIX_PATH:-}" ]]; then
+  for p in ${AMENT_PREFIX_PATH//:/ }; do
+    for site in \
+      "${p}/local/lib/python3.10/dist-packages" \
+      "${p}/lib/python3.10/site-packages"
+    do
+      [[ -d "${site}" ]] && export PYTHONPATH="${site}${PYTHONPATH:+:${PYTHONPATH}}"
+    done
+  done
+fi
+ROS_PY="/opt/ros/${ROS_DISTRO:-humble}/local/lib/python3.10/dist-packages"
+[[ -d "${ROS_PY}" ]] && export PYTHONPATH="${PYTHONPATH:+${PYTHONPATH}:}${ROS_PY}"
+export PYTHONPATH="${PKG_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
+export TANK_OSTRACK_ENGINE="${TANK_OSTRACK_ENGINE:-${PKG_ROOT}/models/ostrack/ostrack_vitb256_ce.engine}"
+
+exec "${VENV}/bin/python" -m tank_track.track_server "$@"
