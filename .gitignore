@@ -1,0 +1,15 @@
+build/
+install/
+log/
+__pycache__/
+*.pyc
+.venv/
+*.engine
+*.onnx
+*.pth*
+*.tar
+*.gguf
+models/.cache/
+.DS_Store
+*.swp
+*~
