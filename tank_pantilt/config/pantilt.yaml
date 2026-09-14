@@ -1,0 +1,9 @@
+pantilt_bridge:
+  ros__parameters:
+    serial_port: "auto"
+    baud: 921600
+    pan_joint: "pan_joint"
+    tilt_joint: "tilt_joint"
+    status_hz: 20.0
+    reconnect_period_s: 2.0
+    auto_running: true
