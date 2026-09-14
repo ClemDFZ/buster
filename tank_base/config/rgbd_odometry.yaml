@@ -1,0 +1,19 @@
+rgbd_odometry:
+  ros__parameters:
+    frame_id: "base_footprint"
+    odom_frame_id: "odom"
+    publish_tf: false
+    wait_for_transform: 0.5
+    approx_sync: true
+    approx_sync_max_interval: 0.1
+    subscribe_rgbd: false
+    subscribe_depth: true
+    topic_queue_size: 10
+    sync_queue_size: 10
+    qos: 1
+    Odom/Strategy: "0"
+    Odom/GuessMotion: "true"
+    Odom/ResetCountdown: "1"
+    Vis/MinInliers: "15"
+    Vis/InlierDistance: "0.1"
+    Reg/Force3DoF: "true"

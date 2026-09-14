@@ -1,0 +1,17 @@
+mega_bridge:
+  ros__parameters:
+    serial_port: "/dev/ttyACM0"
+    baud: 115200
+    bin_period_ms: 20
+    cmd_rate_hz: 50.0
+    cmd_timeout_ms: 250
+    vmax_m_s: 0.40
+    yaw_rate_max_rad_s: 1.5
+    odom_frame: "odom"
+    base_frame: "base_footprint"
+    imu_frame: "mpu_link"
+    odom_topic: "/odom_wheel"
+    publish_tf: false
+    # MPU6050 DMP raw → rough SI (gyro LSB ~16.4 for ±2000dps; accel LSB ~16384 for ±2g)
+    gyro_scale: 0.001064225153655079
+    accel_scale: 0.0005987625122070312

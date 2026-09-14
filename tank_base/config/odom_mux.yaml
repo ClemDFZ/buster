@@ -1,0 +1,13 @@
+odom_mux:
+  ros__parameters:
+    mode: "auto"
+    wheels_topic: "/odom_wheel"
+    vo_topic: "/odom_vo"
+    out_topic: "/odom"
+    odom_frame: "odom"
+    base_frame: "base_footprint"
+    publish_tf: true
+    alpha_vo_fresh: 0.7
+    vo_fresh_dt: 0.25
+    source_fresh_dt: 0.35
+    rate_hz: 30.0
