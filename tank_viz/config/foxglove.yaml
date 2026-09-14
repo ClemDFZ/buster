@@ -1,0 +1,25 @@
+# Image 2D = latest-wins. 3D URDF = /tf + /joint_states in-order on the same WS.
+# Force BEST_EFFORT on state topics so they are not queued behind JPEG.
+foxglove_bridge:
+  ros__parameters:
+    port: 8765
+    address: "0.0.0.0"
+    max_qos_depth: 1
+    send_buffer_limit: 500000
+    num_threads: 2
+    topic_whitelist:
+      - "^(?!.*(?:image_raw|image_rect_raw)$)(?!/vlm/annotated$).*"
+    best_effort_qos_topic_whitelist:
+      - "^/tf$"
+      - "^/joint_states$"
+      - "^/pantilt/joint_states$"
+      - "^/cmd/joint_states$"
+
+jpeg_relay:
+  ros__parameters:
+    image_topics:
+      - "/csi_cam/image_raw"
+      - "/camera/camera/color/image_raw"
+    jpeg_quality: 50
+    max_hz: 12.0
+

@@ -1,0 +1,62 @@
+joint_state_aggregator:
+  ros__parameters:
+    sources: ["/pantilt/joint_states"]
+    wheel_omega_topic: "/mega/wheel_omega"
+    # Order of Float32MultiArray from mega DriveFrame (confirm on HW)
+    wheel_joints: ["FL_joint", "FR_wheel_joint", "RL_joint", "RR_joint"]
+    joint_names:
+      - "FL_joint"
+      - "FR_wheel_joint"
+      - "RL_joint"
+      - "RR_joint"
+      - "pan_joint"
+      - "tilt_joint"
+    # CAD rest (URDF 0) = HW (0°, -45°). pan_urdf = -pan_hw ; tilt_urdf = tilt_hw + π/4
+    joint_offsets_rad: [0.0, 0.0, 0.0, 0.0, 0.0, 0.7853981633974483]
+    joint_scales: [1.0, 1.0, 1.0, 1.0, -1.0, 1.0]
+    rate_hz: 30.0
+
+ghost_publisher:
+  ros__parameters:
+    prefix: "cmd_"
+    preview_s: 1.0
+    hold_s: 0.5
+    rate_hz: 30.0
+    odom_topic: "/odom"
+    cmd_vel_topic: "/cmd_vel"
+    pantilt_cmd_vel_topic: "/pantilt/cmd_vel"
+    pantilt_traj_topic: "/pantilt/joint_trajectory"
+    pantilt_js_topic: "/pantilt/joint_states"
+    joint_names:
+      - "FL_joint"
+      - "FR_wheel_joint"
+      - "RL_joint"
+      - "RR_joint"
+      - "pan_joint"
+      - "tilt_joint"
+    pan_joint: "pan_joint"
+    tilt_joint: "tilt_joint"
+    pan_limit_rad: 3.14159265
+    tilt_min_rad: -1.3089969389957472  # HW −75°
+    tilt_max_rad: 0.0
+    pan_offset_rad: 0.0
+    tilt_offset_rad: 0.7853981633974483  # HW 0 → URDF +45°
+    pan_scale: -1.0
+    tilt_scale: 1.0
+
+viz_markers:
+  ros__parameters:
+    rate_hz: 20.0
+    cmd_vel_topic: "/cmd_vel"
+    pantilt_cmd_vel_topic: "/pantilt/cmd_vel"
+    pantilt_js_topic: "/pantilt/joint_states"
+    pantilt_mode_topic: "/pantilt/mode_state"
+    odom_topic: "/odom"
+    base_frame: "base_link"
+    csi_frame: "CSI_link"
+    realsense_frame: "realsense_link"
+    csi_hfov_deg: 62.2
+    realsense_hfov_deg: 69.0
+    frustum_depth_m: 4.0
+    pan_joint: "pan_joint"
+    tilt_joint: "tilt_joint"
