@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>tank_sim URDF viewer</title>
+  <link rel="stylesheet" href="./style.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./vendor/three/build/three.module.js",
+      "three/addons/": "./vendor/three/addons/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="viewport"></div>
+
+  <aside id="panel">
+    <h1>tank_sim</h1>
+    <div class="sub">urdf_export — revolute / continuous joints</div>
+
+    <div class="section">
+      <div class="section-title">Joints</div>
+      <div id="joints"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Actions</div>
+      <div class="row">
+        <button id="btn-reset" class="primary">Reset</button>
+        <button id="btn-home">Home</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Display</div>
+      <div class="row">
+        <label class="toggle"><input type="checkbox" id="tog-frames" /> Frames</label>
+        <label class="toggle"><input type="checkbox" id="tog-wire" /> Wireframe</label>
+        <label class="toggle"><input type="checkbox" id="tog-grid" checked /> Grid</label>
+        <label class="toggle"><input type="checkbox" id="tog-collision" /> Collision</label>
+      </div>
+    </div>
+
+    <div id="status">loading…</div>
+  </aside>
+
+  <div id="progress">
+    <div class="label" id="progress-label">Loading meshes…</div>
+    <div class="bar"><div class="fill" id="progress-fill"></div></div>
+  </div>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

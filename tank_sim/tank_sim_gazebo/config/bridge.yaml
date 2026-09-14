@@ -1,0 +1,75 @@
+# ros_gz_bridge parameter_bridge config for tank_sim
+# Direction:  [<] gz->ros  [>] ros->gz  [@] bidirectional
+- ros_topic_name: "/clock"
+  gz_topic_name: "/clock"
+  ros_type_name: "rosgraph_msgs/msg/Clock"
+  gz_type_name: "gz.msgs.Clock"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/cmd_vel"
+  gz_topic_name: "/model/tank_sim/cmd_vel"
+  ros_type_name: "geometry_msgs/msg/Twist"
+  gz_type_name: "gz.msgs.Twist"
+  direction: ROS_TO_GZ
+
+- ros_topic_name: "/odom_gt"
+  gz_topic_name: "/model/tank_sim/odometry"
+  ros_type_name: "nav_msgs/msg/Odometry"
+  gz_type_name: "gz.msgs.Odometry"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/joint_states"
+  gz_topic_name: "/world/small_house/model/tank_sim/joint_state"
+  ros_type_name: "sensor_msgs/msg/JointState"
+  gz_type_name: "gz.msgs.Model"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/set_joint_trajectory"
+  gz_topic_name: "/model/tank_sim/joint_trajectory"
+  ros_type_name: "trajectory_msgs/msg/JointTrajectory"
+  gz_type_name: "gz.msgs.JointTrajectory"
+  direction: ROS_TO_GZ
+
+- ros_topic_name: "/camera/camera/color/camera_info"
+  gz_topic_name: "/camera/camera_info"
+  ros_type_name: "sensor_msgs/msg/CameraInfo"
+  gz_type_name: "gz.msgs.CameraInfo"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/camera/camera/depth/camera_info"
+  gz_topic_name: "/camera/depth_image/camera_info"
+  ros_type_name: "sensor_msgs/msg/CameraInfo"
+  gz_type_name: "gz.msgs.CameraInfo"
+  direction: GZ_TO_ROS
+
+# Raw GZ cloud (XYZ in realsense_camera_link); rewritten to correct frame_id in launch.
+- ros_topic_name: "/camera/camera/depth/color/points_gz"
+  gz_topic_name: "/camera/points"
+  ros_type_name: "sensor_msgs/msg/PointCloud2"
+  gz_type_name: "gz.msgs.PointCloudPacked"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/csi_cam/camera_info"
+  gz_topic_name: "/csi_cam/camera_info"
+  ros_type_name: "sensor_msgs/msg/CameraInfo"
+  gz_type_name: "gz.msgs.CameraInfo"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/camera/camera/color/image_raw"
+  gz_topic_name: "/camera/image"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/camera/camera/depth/image_rect_raw"
+  gz_topic_name: "/camera/depth_image"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/csi_cam/image_raw"
+  gz_topic_name: "/csi_cam/image"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: GZ_TO_ROS
+

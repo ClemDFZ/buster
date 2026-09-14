@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>tank_sim_gazebo</name>
+  <version>0.1.0</version>
+  <description>Gazebo Harmonic (gz-sim8) simulation for the mecanum tank: holonomic drive, RealSense D415 + CSI IMX219, rtabmap VO.</description>
+  <maintainer email="user@todo.todo">user</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>tank_description</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>ros_gz_sim</exec_depend>
+  <exec_depend>ros_gz_bridge</exec_depend>
+  <exec_depend>ros_gz_image</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+  <exec_depend>xacro</exec_depend>
+  <exec_depend>rtabmap_odom</exec_depend>
+  <exec_depend>rtabmap_slam</exec_depend>
+  <exec_depend>rtabmap_viz</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>trajectory_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

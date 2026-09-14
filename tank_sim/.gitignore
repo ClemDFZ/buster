@@ -1,0 +1,21 @@
+# OS / editor
+.DS_Store
+*.swp
+*~
+.vscode/
+.idea/
+
+# SolidWorks / ROS build debris
+urdf_export/export.log
+urdf_export/build/
+urdf_export/devel/
+urdf_export/install/
+*.pyc
+__pycache__/
+
+# Full-res SolidWorks exports (kept locally for re-decimation)
+urdf_export/meshes/raw/
+
+# Generated / staged sim assets that are rebuilt by scripts
+# (keep urdf + worlds in package for offline build; meshes are copied)
+# third_party lives outside this repo

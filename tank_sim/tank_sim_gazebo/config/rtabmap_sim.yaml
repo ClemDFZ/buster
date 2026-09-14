@@ -1,0 +1,55 @@
+# rtabmap visual odometry + SLAM for tank_sim (planar, RealSense D415 sim topics)
+rgbd_odometry:
+  ros__parameters:
+    frame_id: "base_footprint"
+    odom_frame_id: "odom"
+    publish_tf: true
+    wait_for_transform: 0.2
+    approx_sync: true
+    approx_sync_max_interval: 0.1
+    subscribe_rgbd: false
+    subscribe_depth: true
+    topic_queue_size: 10
+    sync_queue_size: 10
+    qos: 1
+    # Odometry
+    Odom/Strategy: "0"          # 0=Frame-to-Map
+    Odom/GuessMotion: "true"
+    Odom/ResetCountdown: "1"
+    Vis/MinInliers: "15"
+    Vis/InlierDistance: "0.1"
+    Reg/Force3DoF: "true"
+    # Topics remapped in launch
+
+rtabmap:
+  ros__parameters:
+    frame_id: "base_footprint"
+    odom_frame_id: "odom"
+    map_frame_id: "map"
+    subscribe_depth: true
+    subscribe_rgb: true
+    subscribe_odom_info: true
+    approx_sync: true
+    approx_sync_max_interval: 0.1
+    topic_queue_size: 10
+    sync_queue_size: 10
+    qos: 1
+    wait_for_transform: 0.2
+    # Database
+    database_path: ""
+    Mem/IncrementalMemory: "true"
+    Mem/InitWMWithAllNodes: "true"
+    # Registration / graph
+    Reg/Force3DoF: "true"
+    Reg/Strategy: "0"
+    RGBD/OptimizeFromGraphEnd: "false"
+    RGBD/LinearUpdate: "0.05"
+    RGBD/AngularUpdate: "0.05"
+    RGBD/ProximityBySpace: "true"
+    RGBD/ProximityPathMaxNeighbors: "10"
+    Rtabmap/TimeThr: "0"
+    Rtabmap/DetectionRate: "2.0"
+    Vis/MinInliers: "15"
+    Grid/FromDepth: "true"
+    Grid/3D: "false"
+    Grid/RangeMax: "5.0"
