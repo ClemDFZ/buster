@@ -11,3 +11,5 @@ odom_mux:
     vo_fresh_dt: 0.25
     source_fresh_dt: 0.35
     rate_hz: 30.0
+    # Sim bags / playback: set to /odom_gt for /path/gt + /odom_gt_error
+    gt_topic: ""

@@ -1,4 +1,5 @@
 # ros_gz_bridge parameter_bridge config for tank_sim
+# Placeholders __WORLD__ / __MODEL__ are substituted at launch (see sim.launch.py).
 # Direction:  [<] gz->ros  [>] ros->gz  [@] bidirectional
 - ros_topic_name: "/clock"
   gz_topic_name: "/clock"
@@ -7,25 +8,25 @@
   direction: GZ_TO_ROS
 
 - ros_topic_name: "/cmd_vel"
-  gz_topic_name: "/model/tank_sim/cmd_vel"
+  gz_topic_name: "/model/__MODEL__/cmd_vel"
   ros_type_name: "geometry_msgs/msg/Twist"
   gz_type_name: "gz.msgs.Twist"
   direction: ROS_TO_GZ
 
 - ros_topic_name: "/odom_gt"
-  gz_topic_name: "/model/tank_sim/odometry"
+  gz_topic_name: "/model/__MODEL__/odometry"
   ros_type_name: "nav_msgs/msg/Odometry"
   gz_type_name: "gz.msgs.Odometry"
   direction: GZ_TO_ROS
 
 - ros_topic_name: "/joint_states"
-  gz_topic_name: "/world/small_house/model/tank_sim/joint_state"
+  gz_topic_name: "/world/__WORLD__/model/__MODEL__/joint_state"
   ros_type_name: "sensor_msgs/msg/JointState"
   gz_type_name: "gz.msgs.Model"
   direction: GZ_TO_ROS
 
 - ros_topic_name: "/set_joint_trajectory"
-  gz_topic_name: "/model/tank_sim/joint_trajectory"
+  gz_topic_name: "/model/__MODEL__/joint_trajectory"
   ros_type_name: "trajectory_msgs/msg/JointTrajectory"
   gz_type_name: "gz.msgs.JointTrajectory"
   direction: ROS_TO_GZ

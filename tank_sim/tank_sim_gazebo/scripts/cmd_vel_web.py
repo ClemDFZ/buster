@@ -2,9 +2,10 @@
 """Web teleop for tank_sim: Vx/Vy/Yaw sliders + pan/tilt, port 8768.
 
 Publishes:
-  /cmd_vel                  geometry_msgs/Twist
-  /set_joint_trajectory     trajectory_msgs/JointTrajectory
+  /cmd_vel                      geometry_msgs/Twist
+  /pantilt/joint_trajectory     trajectory_msgs/JointTrajectory
 
+(The pantilt adapter forwards trajectory to GZ /set_joint_trajectory.)
 Displays mecanum IK wheel speeds (mega_drive constants).
 """
 from __future__ import annotations
@@ -207,7 +208,7 @@ class CmdVelWeb(Node):
     def __init__(self):
         super().__init__("cmd_vel_web")
         self.cmd_pub = self.create_publisher(Twist, "/cmd_vel", 10)
-        self.traj_pub = self.create_publisher(JointTrajectory, "/set_joint_trajectory", 10)
+        self.traj_pub = self.create_publisher(JointTrajectory, "/pantilt/joint_trajectory", 10)
         self.timer = self.create_timer(1.0 / RATE_HZ, self._tick)
         self.get_logger().info(f"cmd_vel_web listening on http://0.0.0.0:{PORT}")
 
@@ -228,18 +229,32 @@ class CmdVelWeb(Node):
         self.traj_pub.publish(traj)
 
 
+class ReuseHTTPServer(ThreadingHTTPServer):
+    allow_reuse_address = True
+
+
 def main():
     rclpy.init()
     node = CmdVelWeb()
-    server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
+    try:
+        server = ReuseHTTPServer(("0.0.0.0", PORT), Handler)
+    except OSError as exc:
+        node.get_logger().error(
+            f"cmd_vel_web: cannot bind :{PORT} ({exc}) — teleop UI disabled; "
+            "ROS /cmd_vel and /pantilt/* still work. Run sim_cleanup.sh before relaunch."
+        )
+        server = None
+    thread = None
+    if server is not None:
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
         pass
     finally:
-        server.shutdown()
+        if server is not None:
+            server.shutdown()
         node.destroy_node()
         rclpy.shutdown()
 

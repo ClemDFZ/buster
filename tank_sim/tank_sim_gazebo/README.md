@@ -7,11 +7,11 @@ Port of the original Humble / Gazebo Classic 11 plan — Classic is unavailable 
 ## Features
 
 - Holonomic base via `gz::sim::systems::VelocityControl` (`drive:=velocity`, default)
-- Ground-truth odom `/odom_gt` without TF (VO owns `odom → base_footprint`)
+- Ground-truth odom `/odom_gt` without TF; nav contract `/odom` + `/imu/data_raw` + `/odom_wheel`
+- Pantilt adapter: real `/pantilt/*` names on top of GZ `JointTrajectoryController`
 - Simulated RealSense D415 (`rgbd_camera`) + CSI IMX219 on the turret
-- Pan/tilt via `JointTrajectoryController`
-- Web teleop on port **8768** (Vx/Vy/Yaw + pan/tilt)
-- Optional rtabmap visual odometry + SLAM (`rtabmap:=true`)
+- Web teleop on port **8768** (Vx/Vy/Yaw + pan/tilt) → `/cmd_vel` + `/pantilt/joint_trajectory`
+- Optional rtabmap visual odometry + SLAM (`rtabmap:=true`); else GT fills `/odom`
 - AWS RoboMaker small-house world (fork `sethgi/...` branch `ros2_jazzy`)
 
 ## One-time setup
@@ -33,16 +33,36 @@ source ~/tank_ws/install/setup.bash
 ```bash
 source /opt/ros/jazzy/setup.bash
 source ~/tank_ws/install/setup.bash
+export ROS_DOMAIN_ID=42    # ≠ Humble/Orin (never share a domain across distros)
 
-# Headless gz (recommended under xpra) + RViz + rtabmap
+# Preferred: unified bringup (+ tank_viz twin)
+ros2 launch tank_bringup bringup.launch.py mode:=sim
+
+# Sim stack only (this package)
 ros2 launch tank_sim_gazebo sim.launch.py
 
 # Options
 ros2 launch tank_sim_gazebo sim.launch.py gui:=false rviz:=true rtabmap:=true
 ros2 launch tank_sim_gazebo sim.launch.py gui:=true   # local gz GUI
+ros2 launch tank_sim_gazebo sim.launch.py rtabmap:=false  # /odom from GT
 ```
 
 Teleop UI: http://localhost:8768
+
+### Relaunch robustness (what was fixed)
+
+Second `ros2 launch` used to fail or spawn a silent `tank_sim_0` while bridges still talked to `tank_sim`.
+
+| Cause | Fix |
+|-------|-----|
+| Leftover `gz sim` still holding the world | `scripts/sim_cleanup.sh` runs **synchronously** before gz starts |
+| `ros_gz_sim create -allow_renaming true` → `tank_sim_0` | Renaming disabled; cleanup kills the old model/server |
+| `:8768` still bound by `cmd_vel_web` → launch abort | `fuser -k 8768`, `SO_REUSEADDR`, bind failure is non-fatal |
+| `bridge.yaml` hardcoded `/world/small_house/...` | Launch substitutes `__WORLD__` / `__MODEL__` |
+| Stale gz transport colliding with the new server | Per-launch `GZ_PARTITION=tank_sim_<pid>` |
+| Hardcoded `/home/user/tank_ws/...` model path | Removed |
+
+Manual cleanup: `bash $(ros2 pkg prefix tank_sim_gazebo)/lib/tank_sim_gazebo/sim_cleanup.sh`
 
 ## Topics
 
@@ -50,9 +70,15 @@ Teleop UI: http://localhost:8768
 |-----------|------|
 | `/cmd_vel` | Twist → VelocityControl |
 | `/odom_gt` | GT odometry (no TF) |
-| `/odom` | VO odometry + TF |
+| `/odom_wheel` | GT rewritten to nav frames (no extra TF) |
+| `/odom` | Nav odom + TF: VO if `rtabmap:=true`, else GT |
+| `/imu/data_raw` | GT-derived mock IMU (`mpu_link`) |
+| `/odom_gt_error` | `[dx, dy, dyaw, dist]` VO/nav vs GT (nav gate) |
 | `/joint_states` | wheels + pan/tilt |
-| `/set_joint_trajectory` | pan/tilt command |
+| `/pantilt/cmd_vel` | Twist dps → adapter → GZ trajectory |
+| `/pantilt/joint_trajectory` | Absolute pan/tilt (rad) |
+| `/pantilt/joint_states` | pan/tilt extracted from `/joint_states` |
+| `/set_joint_trajectory` | Internal GZ command (adapter output) |
 | `/camera/camera/color/image_raw` | D415 color |
 | `/camera/camera/depth/image_rect_raw` | D415 depth |
 | `/camera/camera/depth/color/points` | D415 cloud |
@@ -119,6 +145,8 @@ python3 ~/tank_ws/src/tank_sim/tools/urdf_postprocess.py \
 Unified visualizer (ghost + markers) alongside sim:
 
 ```bash
+ros2 launch tank_bringup bringup.launch.py mode:=sim
+# or:
 ros2 launch tank_sim_gazebo sim.launch.py rviz:=false
 ros2 launch tank_viz viz.launch.py mode:=sim rsp:=false
 ```

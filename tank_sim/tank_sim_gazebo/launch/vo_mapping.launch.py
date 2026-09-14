@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""VO + rtabmap SLAM for tank_sim (RealSense D415 sim topics)."""
+"""VO + rtabmap SLAM for tank_sim (RealSense D415 sim topics).
+
+Publishes /odom + TF odom→base_footprint. Ground truth stays on /odom_gt
+(no TF). sim_nav_contract then publishes /odom_gt_error for the nav gate.
+"""
 import os
 
 from ament_index_python.packages import get_package_share_directory

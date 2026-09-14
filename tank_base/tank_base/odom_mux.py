@@ -5,6 +5,7 @@ Modes: auto | wheels | vo | fuse
   auto  — fuse if both fresh, else pass through the live source
   fuse  — complementary body vx/vy (xy_fusion), yaw from Mega IMU on /odom_wheel
 Sources stay on /odom_wheel and /odom_vo for comparison (plus /path/*).
+Optional gt_topic (sim bags / /odom_gt) → /path/gt + /odom_gt_error.
 """
 from __future__ import annotations
 
@@ -18,7 +19,7 @@ from geometry_msgs.msg import PoseStamped, TransformStamped
 from nav_msgs.msg import Odometry, Path
 from rcl_interfaces.msg import SetParametersResult
 from rclpy.node import Node
-from std_msgs.msg import String
+from std_msgs.msg import Float32MultiArray, String
 from std_srvs.srv import Trigger
 from tf2_ros import TransformBroadcaster
 
@@ -47,6 +48,7 @@ class OdomMux(Node):
         self.declare_parameter("path_hz", 5.0)
         self.declare_parameter("path_max", 1500)
         self.declare_parameter("path_min_dist", 0.02)
+        self.declare_parameter("gt_topic", "")
 
         self._mode = str(self.get_parameter("mode").value).strip().lower()
         if self._mode not in MODES:
@@ -62,6 +64,7 @@ class OdomMux(Node):
 
         self._wheel: Optional[Odometry] = None
         self._vo: Optional[Odometry] = None
+        self._gt: Optional[Odometry] = None
         self._wheel_t = 0.0
         self._vo_t = 0.0
         self._last_mono = time.monotonic()
@@ -76,6 +79,7 @@ class OdomMux(Node):
             "wheel": deque(maxlen=self._path_max),
             "vo": deque(maxlen=self._path_max),
             "fused": deque(maxlen=self._path_max),
+            "gt": deque(maxlen=self._path_max),
         }
 
         wheels_topic = str(self.get_parameter("wheels_topic").value)
@@ -89,6 +93,13 @@ class OdomMux(Node):
             "vo": self.create_publisher(Path, "/path/vo", 10),
             "fused": self.create_publisher(Path, "/path/fused", 10),
         }
+        gt_topic = str(self.get_parameter("gt_topic").value).strip()
+        if gt_topic:
+            self._path_pubs["gt"] = self.create_publisher(Path, "/path/gt", 10)
+            self._err_pub = self.create_publisher(Float32MultiArray, "/odom_gt_error", 10)
+            self.create_subscription(Odometry, gt_topic, self._on_gt, 20)
+        else:
+            self._err_pub = None
         self._tf = TransformBroadcaster(self) if self._publish_tf else None
 
         self.create_subscription(Odometry, wheels_topic, self._on_wheel, 20)
@@ -102,7 +113,8 @@ class OdomMux(Node):
         self.create_timer(1.0 / rate, self._on_tick)
         self.create_timer(1.0 / path_hz, self._on_path)
         self.get_logger().info(
-            f"odom_mux mode={self._mode} wheels={wheels_topic} vo={vo_topic} → {out_topic}"
+            f"odom_mux mode={self._mode} wheels={wheels_topic} vo={vo_topic} "
+            f"gt={gt_topic or '-'} → {out_topic}"
         )
 
     def _on_params(self, params) -> SetParametersResult:
@@ -139,6 +151,9 @@ class OdomMux(Node):
     def _on_vo(self, msg: Odometry) -> None:
         self._vo = msg
         self._vo_t = time.monotonic()
+
+    def _on_gt(self, msg: Odometry) -> None:
+        self._gt = msg
 
     def _fresh(self, t: float, now: float, dt: float) -> bool:
         return t > 0.0 and (now - t) < dt
@@ -226,11 +241,27 @@ class OdomMux(Node):
     def _passthrough(self, src: Odometry, now_msg) -> Odometry:
         out = Odometry()
         out.header.stamp = now_msg
-        out.header.frame_id = src.header.frame_id or self._odom_frame
-        out.child_frame_id = src.child_frame_id or self._base_frame
+        out.header.frame_id = self._odom_frame
+        out.child_frame_id = self._base_frame
         out.pose = src.pose
         out.twist = src.twist
         return out
+
+    def _xyyaw(self, msg: Odometry):
+        p = msg.pose.pose.position
+        q = msg.pose.pose.orientation
+        return (float(p.x), float(p.y), yaw_from_quat(q.w, q.x, q.y, q.z))
+
+    def _publish_gt_error(self, nav: Odometry) -> None:
+        if self._err_pub is None or self._gt is None:
+            return
+        nx, ny, nyaw = self._xyyaw(nav)
+        gx, gy, gyaw = self._xyyaw(self._gt)
+        dx, dy = gx - nx, gy - ny
+        dyaw = math.atan2(math.sin(gyaw - nyaw), math.cos(gyaw - nyaw))
+        arr = Float32MultiArray()
+        arr.data = [float(dx), float(dy), float(dyaw), float(math.hypot(dx, dy))]
+        self._err_pub.publish(arr)
 
     def _publish_out(self, msg: Odometry, source: str) -> None:
         self._last_out = msg
@@ -238,6 +269,7 @@ class OdomMux(Node):
         s = String()
         s.data = source
         self._src_pub.publish(s)
+        self._publish_gt_error(msg)
         if self._tf is None:
             return
         t = TransformStamped()
@@ -293,6 +325,8 @@ class OdomMux(Node):
         self._append_path("wheel", self._wheel)
         self._append_path("vo", self._vo)
         self._append_path("fused", self._last_fused)
+        if "gt" in self._path_pubs:
+            self._append_path("gt", self._gt)
         for key, pub in self._path_pubs.items():
             path = Path()
             path.header.stamp = stamp

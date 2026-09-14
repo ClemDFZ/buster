@@ -1,0 +1,27 @@
+# Nav-node contract (real Humble / sim Jazzy). A nav node must not branch on mode.
+#
+# Always:
+cmd_vel: /cmd_vel
+odom: /odom                    # TF odom → base_footprint (sole nav TF)
+imu: /imu/data_raw             # frame mpu_link (sim: GT-derived mock)
+camera_color: /camera/camera/color/image_raw
+camera_depth: /camera/camera/depth/image_rect_raw
+camera_info: /camera/camera/color/camera_info
+csi: /csi_cam/image_raw
+pantilt_js: /pantilt/joint_states
+pantilt_cmd_vel: /pantilt/cmd_vel          # angular.z=pan_dps, angular.y=tilt_dps
+pantilt_traj: /pantilt/joint_trajectory
+pantilt_home: /pantilt/home
+pantilt_stop: /pantilt/stop
+
+# Comparison / debug (do not subscribe from nav):
+odom_wheel: /odom_wheel        # real: Mega; sim: rewrite of /odom_gt
+odom_vo: /odom_vo              # real: rgbd_odometry; sim: unused unless remapped
+odom_gt: /odom_gt              # sim-only GZ ground truth, no TF
+odom_gt_error: /odom_gt_error  # [dx, dy, dyaw, dist]
+path_gt: /path/gt
+
+# TF
+odom_frame: odom
+base_frame: base_footprint
+imu_frame: mpu_link

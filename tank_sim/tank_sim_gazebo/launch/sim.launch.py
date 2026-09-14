@@ -1,41 +1,70 @@
 #!/usr/bin/env python3
-"""Launch Gazebo Harmonic + tank_sim spawn + bridges + optional RViz / rtabmap."""
+"""Launch Gazebo Harmonic + tank_sim spawn + bridges + nav/pantilt contract nodes."""
 from __future__ import annotations
 
 import os
+import re
+import subprocess
+import tempfile
 from pathlib import Path
 
-from ament_index_python.packages import get_package_share_directory
+from ament_index_python.packages import get_package_prefix, get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
-    ExecuteProcess,
     IncludeLaunchDescription,
+    LogInfo,
     OpaqueFunction,
     SetEnvironmentVariable,
     TimerAction,
 )
-from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
-from launch_ros.substitutions import FindPackageShare
 
 
 def _workspace_third_party_models() -> str:
     """Locate third_party aws models relative to this source tree or install."""
-    # Prefer source tree under tank_ws
     here = Path(__file__).resolve()
     candidates = [
-        here.parents[4] / "third_party" / "aws-robomaker-small-house-world" / "models",  # .../tank_ws/src/tank_sim/...
+        here.parents[4] / "third_party" / "aws-robomaker-small-house-world" / "models",
         here.parents[5] / "third_party" / "aws-robomaker-small-house-world" / "models",
         Path.home() / "tank_ws" / "third_party" / "aws-robomaker-small-house-world" / "models",
-        Path("/home/user/tank_ws/third_party/aws-robomaker-small-house-world/models"),
     ]
     for c in candidates:
         if c.is_dir():
             return str(c)
-    return str(candidates[-1])
+    return str(candidates[0])
+
+
+def _cleanup_script() -> Path | None:
+    cands = [
+        Path(__file__).resolve().parents[1] / "scripts" / "sim_cleanup.sh",
+        Path(get_package_prefix("tank_sim_gazebo")) / "lib" / "tank_sim_gazebo" / "sim_cleanup.sh",
+    ]
+    for c in cands:
+        if c.is_file():
+            return c
+    return None
+
+
+def _world_sdf_name(world_path: str) -> str:
+    try:
+        text = Path(world_path).read_text(encoding="utf-8")
+    except OSError:
+        return Path(world_path).stem
+    m = re.search(r"<world\b[^>]*\bname\s*=\s*['\"]([^'\"]+)", text)
+    return m.group(1) if m else Path(world_path).stem
+
+
+def _materialize_bridge(pkg_share: str, world_name: str, model_name: str) -> str:
+    src = Path(pkg_share) / "config" / "bridge.yaml"
+    text = src.read_text(encoding="utf-8")
+    text = text.replace("__WORLD__", world_name).replace("__MODEL__", model_name)
+    fd, path = tempfile.mkstemp(prefix="tank_sim_bridge_", suffix=".yaml")
+    os.close(fd)
+    Path(path).write_text(text, encoding="utf-8")
+    return path
 
 
 def launch_setup(context, *args, **kwargs):
@@ -47,14 +76,13 @@ def launch_setup(context, *args, **kwargs):
     rviz = LaunchConfiguration("rviz").perform(context)
     rtabmap = LaunchConfiguration("rtabmap").perform(context)
     drive = LaunchConfiguration("drive").perform(context)
+    model_name = LaunchConfiguration("model_name").perform(context).strip() or "tank_sim"
 
     world_path = world_arg
     if not os.path.isabs(world_path):
         world_path = os.path.join(pkg_share, "worlds", world_path)
 
     urdf_path = os.path.join(pkg_share, "urdf", "tank_sim.urdf")
-    # If drive=mecanum, regenerate is out of band; use installed URDF (velocity default).
-    # Optional: read alternate urdf if present.
     if drive == "mecanum":
         alt = os.path.join(pkg_share, "urdf", "tank_sim_mecanum.urdf")
         if os.path.isfile(alt):
@@ -64,9 +92,6 @@ def launch_setup(context, *args, **kwargs):
         robot_desc = f.read()
 
     models_path = _workspace_third_party_models()
-    # package://tank_description/meshes/... → model://tank_description/meshes/...
-    # GZ_SIM_RESOURCE_PATH must contain the parent of share/ (install/share),
-    # plus AWS models/, plus the world package root for relative photos.
     pkg_share_parent = str(Path(pkg_share).parent)
     aws_root = str(Path(models_path).parent) if models_path else ""
     resource_path = ":".join(
@@ -80,19 +105,36 @@ def launch_setup(context, *args, **kwargs):
         )
         if p
     )
-    # Prefer distro FastCDR / RMW libs over any source-build overlays
-    # (/home/user/install, ros2_jazzy) that break rtabmap ABI.
     jazzy_lib = "/opt/ros/jazzy/lib"
     ld_path = jazzy_lib
     if os.environ.get("LD_LIBRARY_PATH"):
         ld_path = jazzy_lib + ":" + os.environ["LD_LIBRARY_PATH"]
 
+    cleanup = _cleanup_script()
+    if cleanup is not None:
+        subprocess.run(["bash", str(cleanup)], check=False)
+    else:
+        # Fallback: free teleop port at least.
+        subprocess.run(["fuser", "-k", "8768/tcp"], check=False, capture_output=True)
+
+    world_name = _world_sdf_name(world_path)
+    bridge_yaml = _materialize_bridge(pkg_share, world_name, model_name)
+    partition = os.environ.get("GZ_PARTITION") or f"tank_sim_{os.getpid()}"
+    distro = os.environ.get("ROS_DISTRO", "?")
+    domain = os.environ.get("ROS_DOMAIN_ID", "0")
 
     gz_args = f"-r -s {world_path}" if gui != "true" else f"-r {world_path}"
+    use_rtabmap = rtabmap == "true"
 
     actions = [
+        LogInfo(
+            msg=f"[tank_sim] distro={distro} ROS_DOMAIN_ID={domain} "
+            f"GZ_PARTITION={partition} world={world_name} model={model_name} "
+            f"— do not share this domain with Humble/Orin"
+        ),
         SetEnvironmentVariable("GZ_SIM_RESOURCE_PATH", resource_path),
         SetEnvironmentVariable("GZ_SIM_RENDER_ENGINE", "ogre2"),
+        SetEnvironmentVariable("GZ_PARTITION", partition),
         SetEnvironmentVariable("LD_LIBRARY_PATH", ld_path),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(
@@ -116,7 +158,7 @@ def launch_setup(context, *args, **kwargs):
             ],
         ),
         TimerAction(
-            period=3.0,
+            period=3.5,
             actions=[
                 Node(
                     package="ros_gz_sim",
@@ -125,11 +167,9 @@ def launch_setup(context, *args, **kwargs):
                         "-topic",
                         "robot_description",
                         "-name",
-                        "tank_sim",
+                        model_name,
                         "-z",
                         "0.1",
-                        "-allow_renaming",
-                        "true",
                     ],
                     output="screen",
                     parameters=[{"use_sim_time": True}],
@@ -141,14 +181,12 @@ def launch_setup(context, *args, **kwargs):
             executable="parameter_bridge",
             parameters=[
                 {
-                    "config_file": os.path.join(pkg_share, "config", "bridge.yaml"),
+                    "config_file": bridge_yaml,
                     "use_sim_time": True,
                 }
             ],
             output="screen",
         ),
-        # Prefer parameter_bridge for images (reliable remaps). image_bridge remaps are flaky.
-        # (image_transport compressed topics come from image_transport_plugins if desired)
         Node(
             package="tank_sim_gazebo",
             executable="cmd_vel_web.py",
@@ -156,7 +194,28 @@ def launch_setup(context, *args, **kwargs):
             output="screen",
             parameters=[{"use_sim_time": True}],
         ),
-        # GZ points XYZ are camera_link; gz_frame_id is optical for VO — fix stamp for RViz.
+        Node(
+            package="tank_sim_gazebo",
+            executable="pantilt_sim_adapter.py",
+            name="pantilt_sim_adapter",
+            output="screen",
+            parameters=[{"use_sim_time": True}],
+        ),
+        Node(
+            package="tank_sim_gazebo",
+            executable="sim_nav_contract.py",
+            name="sim_nav_contract",
+            output="screen",
+            parameters=[
+                {
+                    "use_sim_time": True,
+                    # rtabmap VO owns /odom + TF; otherwise GT fills the nav contract.
+                    "publish_nav_odom": not use_rtabmap,
+                    "publish_tf": not use_rtabmap,
+                    "publish_imu": True,
+                }
+            ],
+        ),
         Node(
             package="tank_sim_gazebo",
             executable="rewrite_frame_id.py",
@@ -188,7 +247,7 @@ def launch_setup(context, *args, **kwargs):
             )
         )
 
-    if rtabmap == "true":
+    if use_rtabmap:
         actions.append(
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(
@@ -221,12 +280,18 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "rtabmap",
                 default_value="true",
-                description="Start rgbd_odometry + rtabmap",
+                description="Start rgbd_odometry + rtabmap (owns /odom + TF). "
+                "If false, sim_nav_contract publishes /odom from /odom_gt.",
             ),
             DeclareLaunchArgument(
                 "drive",
                 default_value="velocity",
                 description="velocity (holonomic VelocityControl) or mecanum (experimental)",
+            ),
+            DeclareLaunchArgument(
+                "model_name",
+                default_value="tank_sim",
+                description="GZ model name (must match bridge /model/__MODEL__ topics)",
             ),
             OpaqueFunction(function=launch_setup),
         ]

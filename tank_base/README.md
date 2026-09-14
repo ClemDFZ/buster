@@ -45,6 +45,13 @@ ros2 topic pub --once /odom_mux/set_mode std_msgs/String "data: fuse"
 ros2 param set /odom_mux mode wheels
 ```
 
+Optional sim-gate (bags / playback of `/odom_gt`):
+
+```bash
+ros2 param set /odom_mux gt_topic /odom_gt
+# → /path/gt + /odom_gt_error [dx, dy, dyaw, dist]
+```
+
 ## Topics
 
 | Topic | Role |

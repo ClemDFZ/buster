@@ -2,6 +2,8 @@
 
 Unified RViz digital twin for real (Orin) and sim (PC).
 
+Preferred: `ros2 launch tank_bringup bringup.launch.py mode:=real|sim` (starts viz for you).
+
 ```bash
 # Real (pantilt + CSI, no base yet)
 ros2 launch tank_viz viz.launch.py mode:=real static_base:=true
