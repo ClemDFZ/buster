@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Launcher: package-local .venv + Jetson CUDA env for llama-cpp multimodal.
+set -euo pipefail
+
+# Resolve package root: prefer source tree with models/ + .venv/
+_HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PKG_ROOT=""
+for cand in \
+  "${_HERE}/.." \
+  "${AMENT_CURRENT_PREFIX:-}/../../src/tank_vlm" \
+  "${HOME}/tank_ws/src/tank_vlm"
+do
+  if [[ -f "${cand}/package.xml" ]]; then
+    PKG_ROOT="$(cd "${cand}" && pwd)"
+    break
+  fi
+done
+
+if [[ -z "${PKG_ROOT}" ]]; then
+  echo "[tank_vlm] cannot find package root (package.xml)" >&2
+  exit 1
+fi
+
+VENV="${PKG_ROOT}/.venv"
+if [[ ! -x "${VENV}/bin/python" ]]; then
+  echo "[tank_vlm] missing ${VENV}" >&2
+  echo "  Run:  bash ${PKG_ROOT}/scripts/setup_venv.sh" >&2
+  exit 1
+fi
+
+if ! "${VENV}/bin/python" -c "import llama_cpp" >/dev/null 2>&1; then
+  echo "[tank_vlm] llama_cpp missing in ${VENV}" >&2
+  echo "  Run:  bash ${PKG_ROOT}/scripts/setup_venv.sh" >&2
+  exit 1
+fi
+
+export CUDA_HOME="${CUDA_HOME:-/usr/local/cuda-12.6}"
+LLAMA_LIB="$("${VENV}/bin/python" - <<'PY'
+import pathlib, llama_cpp
+print(pathlib.Path(llama_cpp.__file__).resolve().parent / "lib")
+PY
+)"
+export LD_LIBRARY_PATH="${LLAMA_LIB}:${CUDA_HOME}/targets/aarch64-linux/lib:/usr/local/cuda/targets/aarch64-linux/lib:/usr/lib/aarch64-linux-gnu${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+export MTMD_BACKEND_DEVICE="${MTMD_BACKEND_DEVICE:-CUDA0}"
+export GGML_CUDA_ENABLE_UNIFIED_MEMORY="${GGML_CUDA_ENABLE_UNIFIED_MEMORY:-1}"
+export TANK_VLM_MODELS="${TANK_VLM_MODELS:-${PKG_ROOT}/models}"
+
+# Ensure installed/overlay tank_vlm is importable
+if [[ -n "${AMENT_PREFIX_PATH:-}" ]]; then
+  for p in ${AMENT_PREFIX_PATH//:/ }; do
+    for site in \
+      "${p}/local/lib/python3.10/dist-packages" \
+      "${p}/lib/python3.10/site-packages"
+    do
+      [[ -d "${site}" ]] && export PYTHONPATH="${site}${PYTHONPATH:+:${PYTHONPATH}}"
+    done
+  done
+fi
+# ROS distro python (rclpy) — after venv site-packages on sys.path via -s? Keep ROS last so
+# venv numpy/opencv win; rclpy still found.
+ROS_PY="/opt/ros/${ROS_DISTRO:-humble}/local/lib/python3.10/dist-packages"
+[[ -d "${ROS_PY}" ]] && export PYTHONPATH="${PYTHONPATH:+${PYTHONPATH}:}${ROS_PY}"
+# Also allow running from source tree without install
+export PYTHONPATH="${PKG_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
+
+exec "${VENV}/bin/python" -m tank_vlm.vlm_bridge "$@"

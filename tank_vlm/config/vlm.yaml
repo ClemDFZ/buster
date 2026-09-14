@@ -1,0 +1,28 @@
+vlm_bridge:
+  ros__parameters:
+    # empty → auto: <pkg>/models (TANK_VLM_MODELS override)
+    models_dir: ""
+    model_file: "Qwen3-VL-2B-Instruct-Q4_K_M.gguf"
+    clip_file: "Qwen3-VL-2B-Instruct-mmproj-F16.gguf"
+    model_id: "qwen3-vl-2b"
+    chat_format: "qwen2.5-vl"
+    n_ctx: 4096
+    n_gpu_layers: -1
+    n_batch: 512
+    n_ubatch: 512
+    image_min_tokens: 256
+    image_max_tokens: 1024
+    vision_use_gpu: true
+    autoload: true
+
+    image_topic: "/csi_cam/image_raw"
+    max_side: 640
+    jpeg_quality: 85
+    auto_hz: 0.0
+    default_label: ""
+    max_boxes: 4
+    letterbox: true
+    publish_annotated: true
+    annotate_topic: "/vlm/annotated"
+    detections_topic: "/vlm/detections"
+    status_topic: "/vlm/status"
