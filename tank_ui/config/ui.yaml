@@ -1,0 +1,7 @@
+ui_server:
+  ros__parameters:
+    http_port: 8766
+    host: "0.0.0.0"
+    pan_joint: pan_joint
+    tilt_joint: tilt_joint
+    status_hz: 2.0

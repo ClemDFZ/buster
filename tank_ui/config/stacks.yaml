@@ -1,0 +1,44 @@
+# Stack definitions for tank_ui launch_manager (not a ROS params file).
+stacks:
+  pantilt:
+    label: Pantilt
+    category: pantilt
+    cmd: [ros2, launch, tank_pantilt, pantilt.launch.py]
+    nodes_required: [pantilt_bridge]
+    nodes_optional: [csi_argus, csi_republish]
+  base:
+    label: Base
+    category: base
+    cmd: [ros2, launch, tank_base, tank_base.launch.py]
+    nodes_required: [mega_bridge]
+    nodes_optional: [camera, odom_mux]
+  vo:
+    label: VO
+    category: base
+    cmd: [ros2, launch, tank_base, vo.launch.py]
+    nodes_required: [rgbd_odometry]
+    nodes_optional: [realsense_to_camera_link]
+  viz:
+    label: Viz
+    category: viz
+    cmd: [ros2, launch, tank_viz, viz.launch.py, mode:=real, static_base:=false, rviz:=false]
+    nodes_required: [joint_state_aggregator, robot_state_publisher]
+    nodes_optional: [ghost_publisher, viz_markers]
+  foxglove:
+    label: Foxglove
+    category: foxglove
+    cmd: [ros2, launch, tank_viz, foxglove.launch.py]
+    nodes_required: [foxglove_bridge]
+    nodes_optional: [jpeg_relay]
+  vlm:
+    label: VLM
+    category: vlm
+    cmd: [ros2, launch, tank_vlm, vlm.launch.py]
+    nodes_required: [vlm_bridge]
+    nodes_optional: []
+  track:
+    label: Track
+    category: track
+    cmd: [ros2, launch, tank_track, track.launch.py]
+    nodes_required: [track_server]
+    nodes_optional: []

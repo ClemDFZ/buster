@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>tank UI</title>
+<link rel="stylesheet" href="/style.css"/>
+</head>
+<body>
+  <header>
+    <div class="hdr">
+      <div>
+        <h1>tank control <span class="hint">:8766</span></h1>
+        <nav class="tabs">
+          <button class="tab on" data-tab="ros">ROS</button>
+          <button class="tab" data-tab="pantilt">Pantilt</button>
+          <button class="tab" data-tab="track">Tracking</button>
+          <button class="tab" data-tab="odom">Odom</button>
+          <button class="tab" data-tab="base" disabled title="hors scope">Base</button>
+        </nav>
+      </div>
+      <div class="sys-hud" id="sys-hud" title="host">
+        <div class="sys-ring" id="ring-cpu" style="--p:0;--c:#5b8cff"><div class="sys-inner"><span>CPU</span><b id="sys-cpu">—</b></div></div>
+        <div class="sys-ring" id="ring-gpu" style="--p:0;--c:#c084fc"><div class="sys-inner"><span>GPU</span><b id="sys-gpu">—</b></div></div>
+        <div class="sys-ring" id="ring-ram" style="--p:0;--c:#22d3ee"><div class="sys-inner"><span>RAM</span><b id="sys-ram">—</b></div></div>
+        <div class="sys-ring" id="ring-tmp" style="--p:0;--c:#fb923c"><div class="sys-inner"><span>TEMP</span><b id="sys-tmp">—</b></div></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ROS -->
+  <section id="tab-ros" class="panel on">
+    <div id="stack-grid" class="stack-grid"></div>
+    <div class="card">
+      <h2>Logs <select id="log-stack"></select>
+        <button class="sec" onclick="refreshLogs()">Refresh</button>
+      </h2>
+      <pre id="log-view" class="log">—</pre>
+    </div>
+  </section>
+
+  <!-- PANTILT -->
+  <section id="tab-pantilt" class="panel">
+    <div class="row">
+      <div class="card">
+        <h2>Velocity (deg/s)</h2>
+        <label>pan_dps <span id="pan_dps_v">0</span></label>
+        <input id="pan_dps" type="range" min="-60" max="60" step="1" value="0"/>
+        <label>tilt_dps <span id="tilt_dps_v">0</span></label>
+        <input id="tilt_dps" type="range" min="-60" max="60" step="1" value="0"/>
+        <div class="btns">
+          <button class="sec" onclick="zeroVel()">Stop vel</button>
+        </div>
+        <p class="hint">Non-zero → /pantilt/cmd_vel @ 20 Hz.</p>
+      </div>
+      <div class="card">
+        <h2>Position (deg absolute)</h2>
+        <label>pan <input id="pan_deg" type="number" min="-180" max="180" step="0.5" value="0"/></label>
+        <label>tilt <input id="tilt_deg" type="number" min="-75" max="0" step="0.5" value="0"/></label>
+        <div class="btns">
+          <button onclick="sendAng()">Go angle</button>
+          <button class="sec" onclick="copyMeas()">Copy measured</button>
+        </div>
+        <p class="hint">Limits: pan ±180°, tilt -75…0°.</p>
+      </div>
+      <div class="card">
+        <h2>Mode ESP <span id="mode_badge" class="badge badge-UNKNOWN">?</span></h2>
+        <div class="btns">
+          <button id="mode-IDLE" class="sec" onclick="setMode('IDLE')">IDLE</button>
+          <button id="mode-HOMING" class="ok" onclick="setMode('HOMING')">HOMING</button>
+          <button id="mode-RUNNING" onclick="setMode('RUNNING')">RUNNING</button>
+        </div>
+        <p class="hint">Stop → IDLE. RUNNING pour bouger. HOMING = fin de course tilt.</p>
+        <div class="btns">
+          <button class="sec" onclick="callHome()">Go (0,0)</button>
+          <button class="danger" onclick="callStop()">Stop</button>
+        </div>
+        <h2 style="margin-top:1.1rem">State</h2>
+        <pre id="pt-state">connecting…</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- TRACKING -->
+  <section id="tab-track" class="panel">
+    <div id="track-warn" class="warn hidden">VLM / camera / track_server manquants — lance les stacks dans l'onglet ROS.</div>
+    <div class="row">
+      <div class="card" style="flex:2">
+        <h2>Stream <span id="stream-src" class="hint">csi</span></h2>
+        <div class="stream-wrap">
+          <img id="stream" class="stream" alt="stream"/>
+          <img id="vlm-crop" class="vlm-crop hidden" alt="vlm crop"/>
+        </div>
+        <p class="err-hud">dX <span id="dx">—</span> px &nbsp; dY <span id="dy">—</span> px</p>
+      </div>
+      <div class="card">
+        <h2>Target</h2>
+        <label>objet
+          <input id="track-target" type="text" placeholder="bottle" value=""/>
+        </label>
+        <label class="chk"><input id="track-home" type="checkbox"/> do_home</label>
+        <label class="chk"><input id="motion-enable" type="checkbox" checked/> envoi angles / vel → ESP</label>
+        <label class="chk"><input id="sweep-enable" type="checkbox" checked/> sweep continu (pan ±90°, tilt -15…-50°)</label>
+        <div class="btns">
+          <button class="ok" onclick="trackStart()">Start</button>
+          <button class="danger" onclick="trackCancel()">Cancel</button>
+        </div>
+        <h2 style="margin-top:1rem">PID</h2>
+        <div class="pid-grid">
+          <label>kp_x <input id="pid-kp_x" type="number" step="0.001" value="-0.07"/></label>
+          <label>kp_y <input id="pid-kp_y" type="number" step="0.001" value="0.02"/></label>
+          <label>kd_x <input id="pid-kd_x" type="number" step="0.0001" value="0.0005"/></label>
+          <label>kd_y <input id="pid-kd_y" type="number" step="0.0001" value="0.0005"/></label>
+          <label>ki_x <input id="pid-ki_x" type="number" step="0.001" value="0"/></label>
+          <label>ki_y <input id="pid-ki_y" type="number" step="0.001" value="0"/></label>
+          <label>dz_px <input id="pid-deadzone_px" type="number" step="1" value="8"/></label>
+          <label>max_dps <input id="pid-max_dps" type="number" step="1" value="45"/></label>
+        </div>
+        <div class="btns">
+          <button class="sec" onclick="pidSave()">Set</button>
+        </div>
+        <h2 style="margin-top:1rem">Feedback</h2>
+        <pre id="track-fb">idle</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- placeholders -->
+  <section id="tab-odom" class="panel">
+    <div class="row">
+      <div class="card" style="flex:2">
+        <h2>RealSense D415 <span id="rs-src" class="hint">/camera/camera/color/image_raw</span></h2>
+        <div class="stream-wrap">
+          <img id="rs-stream" class="stream" alt="realsense"/>
+        </div>
+        <p class="hint" id="rs-hint">Base = Mega + RS + mux. VO = rgbd_odometry. Les deux en même temps = 3 traces.</p>
+      </div>
+      <div class="card">
+        <h2>Odom <span class="hint" id="odom-src">/odom</span></h2>
+        <div class="row" style="gap:0.4rem;margin-bottom:0.5rem">
+          <button class="sec" onclick="odomMode('auto')">auto</button>
+          <button class="sec" onclick="odomMode('wheels')">wheels</button>
+          <button class="sec" onclick="odomMode('vo')">vo</button>
+          <button class="sec" onclick="odomMode('fuse')">fuse</button>
+          <button class="danger" onclick="odomZero()">zero</button>
+        </div>
+        <pre id="odom-state">waiting /odom…</pre>
+      </div>
+    </div>
+  </section>
+  <section id="tab-base" class="panel"><p class="hint">Base mobile — hors scope</p></section>
+
+<script src="/app.js"></script>
+</body>
+</html>
