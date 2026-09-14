@@ -1,0 +1,7 @@
+# Detect.srv — open-vocab detect on a frozen frame (or latest if image empty)
+string label
+sensor_msgs/Image image
+---
+bool success
+string message
+string detections_json

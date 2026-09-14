@@ -1,0 +1,15 @@
+# TrackTarget.action — VLM explore → OSTrack → pantilt PID
+string target
+bool do_home
+---
+bool success
+string message
+---
+string phase
+string explore_step
+float32[4] bbox_xyxy
+float32 score
+float32 pan_dps
+float32 tilt_dps
+float32 dx_px
+float32 dy_px
