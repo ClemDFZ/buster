@@ -695,8 +695,14 @@ class UiServer(Node):
                     return {}
 
             def _serve_file(self, rel: str, ctype: str) -> None:
-                path = (web_root / rel).resolve()
-                if not str(path).startswith(str(web_root.resolve())) or not path.is_file():
+                # Don't resolve() into the target: with colcon --symlink-install
+                # share/web/* → src/tank_ui/web/* which sits outside web_root and
+                # used to trip a false 404. Block ".." then follow the symlink.
+                if ".." in Path(rel).parts:
+                    self.send_error(404)
+                    return
+                path = web_root / rel
+                if not path.is_file():
                     self.send_error(404)
                     return
                 data = path.read_bytes()
